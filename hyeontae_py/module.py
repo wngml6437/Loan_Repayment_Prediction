@@ -3,6 +3,13 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 import warnings
+import lightgbm as lgb
+from sklearn.model_selection import GridSearchCV, KFold, train_test_split
+from sklearn.metrics import roc_auc_score
+from sklearn.preprocessing import LabelEncoder, StandardScaler, MinMaxScaler, MaxAbsScaler, RobustScaler
+from sklearn.metrics import confusion_matrix, roc_curve, roc_auc_score, precision_score, recall_score, f1_score
+
+import gc
 
 warnings.filterwarnings('ignore')
 
@@ -228,8 +235,8 @@ def handle_missing_values(train, test, percentage):
     print(len(missing_test_vars))
 
     missing_columns = list(set(missing_test_vars + missing_train_vars))
-    print('There are %d columns with more than 90%% missing in either the training or testing data.' % len(
-        missing_columns))
+    print("There are %d columns with more than %d%% missing in either the training or testing data." % (len(
+        missing_columns), percentage))
 
     # Drop the missing columns
     train = train.drop(columns=missing_columns)
@@ -293,3 +300,310 @@ def corr_selection(train, test, threshold):
     print('Testing Corrs Removed Shape: ', test_corrs_removed.shape)
 
     return train_corrs_removed, test_corrs_removed
+
+
+def feature_engineering(train, test, encoder, scaler):
+    # Function for encoding categorical features with Label Encoder
+    # Parameter : df -> Missing value handling, feature selection completed dataset
+    def labelEnc(df):
+        label = LabelEncoder()
+        # select only columns with values are in object type and make new dataframe
+        categorical_df = df.select_dtypes(include='object')
+        numerical_df = df.select_dtypes(exclude='object')
+        # encode all categorical columns with Label Encoder
+        for i in range(0, len(categorical_df.columns)):
+            df[categorical_df.columns[i]] = label.fit_transform(categorical_df.iloc[:, [i]].values)
+
+        return df
+
+    def OneHotEnc(df):
+        df = pd.get_dummies(df)
+        return df
+
+    # Function for showing heatmap of correlation between each attributes
+    # Parameter : df -> Missing value handling, feature selection completed dataset
+    def showHeatmap(df):
+        df = labelEnc(df)
+        heatmap_data = df
+        colormap = plt.cm.PuBu
+        plt.figure(figsize=(15, 15))
+        plt.title("Correlation of Features", y=1.05, size=15)
+        sns.heatmap(heatmap_data.astype(float).corr(), linewidths=0.1, square=False, cmap=colormap, linecolor="white",
+                    annot=True, annot_kws={"size": 8})
+        plt.show()
+
+    def scaling(scaler, X_train, X_test):
+
+        feature_names = X_train.columns.values.tolist()
+        # Make scaler with the parameter inputted with below condition
+        Scaler = scaler
+        if scaler == 'MinMaxScaler':
+            Scaler = MinMaxScaler()
+        elif scaler == 'MaxAbsScaler':
+            Scaler = MaxAbsScaler()
+        elif scaler == 'StandardScaler':
+            Scaler = StandardScaler()
+        elif scaler == 'RobustScaler':
+            Scaler = RobustScaler()
+
+        # Scale the datasets with each scaler chosen with condition above
+        X_train_scale = Scaler.fit_transform(X_train)
+        X_test_scale = Scaler.transform(X_test)
+        train = pd.DataFrame(X_train_scale, columns=feature_names)
+        test = pd.DataFrame(X_test_scale, columns=feature_names)
+
+        return train, test
+
+    # Remove the ids and target
+    train = train.drop(columns=['SK_ID_CURR', 'TARGET'])
+    test = test.drop(columns=['SK_ID_CURR'])
+
+    # Align the dataframes by the columns
+    train, test = train.align(test, join='inner', axis=1)
+
+    train['training_set'] = True
+    test['training_set'] = False
+
+    df_full = pd.concat([train, test])
+
+    if encoder == 'LabelEncoder':
+        # Do label encoding with all categorical features
+        df_full = labelEnc(df_full)
+        train = df_full[df_full['training_set'] == True]
+        train = train.drop('training_set', axis=1)
+        test = df_full[df_full['training_set'] == False]
+        test = test.drop('training_set', axis=1)
+
+        # When it meets MinMaxScaler
+        if scaler == 'MinMaxScaler':
+            # MinMax Scaling using scaling function defined above
+            train, test = scaling(scaler, train, test)
+            # print('========================= Label Encoder & MinMax Scaler =========================')
+            # # store values while rotating all algorithms used in this module
+            # for alg in Alg_list:
+            #     algorithm, estimator, score, parameter, precision, recall, F1, pred_proba, AUC = alg(X_train, y_train, X_test, y_test)
+            #     # F1 score is the standard and set condition to store best scores, estimator, algorithm, etc
+            #     if F1 > best_F1:
+            #         best_encoder = 'Label Encoder'
+            #         best_scaler = 'MinMax Scaler'
+            #         best_algorithm = algorithm
+            #         best_estimator = estimator
+            #         best_score = score
+            #         best_precision = precision
+            #         best_recall = recall
+            #         best_F1 = F1
+            #         best_pred_proba = pred_proba
+            #         best_AUC = AUC
+            #         best_y_test = y_test
+        # When it meets MaxAbsScaler
+        elif scaler == 'MaxAbsScaler':
+            # MaxAbs Scaling using scaling function defined above
+            train, test = scaling(scaler, train, test)
+            # print('========================= Label Encoder & MaxAbs Scaler =========================')
+            # # store values while rotating all algorithms used in this module
+            # for alg in Alg_list:
+            #     algorithm, estimator, score, parameter, precision, recall, F1, pred_proba, AUC = alg(X_train, y_train, X_test, y_test)
+            #     # F1 score is the standard and set condition to store best scores, estimator, algorithm, etc
+            #     if F1 > best_F1:
+            #         best_encoder = 'Label Encoder'
+            #         best_scaler = 'MaxAbs Scaler'
+            #         best_algorithm = algorithm
+            #         best_estimator = estimator
+            #         best_score = score
+            #         best_precision = precision
+            #         best_recall = recall
+            #         best_F1 = F1
+            #         best_pred_proba = pred_proba
+            #         best_AUC = AUC
+            #         best_y_test = y_test
+        # When it meets StandardScaler
+        elif scaler == 'StandardScaler':
+            # Standard Scaling using scaling function defined above
+            train, test = scaling(scaler, train, test)
+            # print('========================= Label Encoder & Standard Scaler =========================')
+            # # store values while rotating all algorithms used in this module
+            # for alg in Alg_list:
+            #     algorithm, estimator, score, parameter, precision, recall, F1, pred_proba, AUC = alg(X_train, y_train, X_test, y_test)
+            #     # F1 score is the standard and set condition to store best scores, estimator, algorithm, etc
+            #     if F1 > best_F1:
+            #         best_encoder = 'Label Encoder'
+            #         best_scaler = 'Standard Scaler'
+            #         best_algorithm = algorithm
+            #         best_estimator = estimator
+            #         best_score = score
+            #         best_precision = precision
+            #         best_recall = recall
+            #         best_F1 = F1
+            #         best_pred_proba = pred_proba
+            #         best_AUC =AUC
+            #         best_y_test = y_test
+        # When it meets RobustScaler
+        elif scaler == 'RobustScaler':
+            # Robust Scaling using scaling function defined above
+            train, test = scaling(scaler, train, test)
+            # print('========================= Label Encoder & Robust Scaler =========================')
+            # # store values while rotating all algorithms used in this module
+            # for alg in Alg_list:
+            #     algorithm, estimator, score, parameter, precision, recall, F1, pred_proba, AUC = alg(X_train, y_train, X_test, y_test)
+            #     # F1 score is the standard and set condition to store best scores, estimator, algorithm, etc
+            #     if F1 > best_F1:
+            #         best_encoder = 'Label Encoder'
+            #         best_scaler = 'Robust Scaler'
+            #         best_algorithm = algorithm
+            #         best_estimator = estimator
+            #         best_score = score
+            #         best_precision = precision
+            #         best_recall = recall
+            #         best_F1 = F1
+            #         best_pred_proba = pred_proba
+            #         best_AUC =AUC
+            #         best_y_test = y_test
+    elif encoder == 'OneHotEncoder':
+        # Set the feature attributes and target attribute
+        df_full = OneHotEnc(df_full)
+        train = df_full[df_full['training_set'] == True]
+        train = train.drop('training_set', axis=1)
+        test = df_full[df_full['training_set'] == False]
+        test = test.drop('training_set', axis=1)
+
+        print(train.head())
+
+        # When it meets MinMaxScaler
+        if scaler == 'MinMaxScaler':
+            # MinMax Scaling using scaling function defined above
+            train, test = scaling(scaler, train, test)
+            # print('========================= OneHot Encoder & MinMax Scaler =========================')
+            # # store values while rotating all algorithms used in this module
+            # for alg in Alg_list:
+            #     algorithm, estimator, score, parameter, precision, recall, F1, pred_proba, AUC = alg(X_train, y_train, X_test, y_test)
+            #     # F1 score is the standard and set condition to store best scores, estimator, algorithm, etc
+            #     if F1 > best_F1:
+            #         best_encoder = 'OneHot Encoder'
+            #         best_scaler = 'MinMax Scaler'
+            #         best_algorithm = algorithm
+            #         best_estimator = estimator
+            #         best_score = score
+            #         best_precision = precision
+            #         best_recall = recall
+            #         best_F1 = F1
+            #         best_pred_proba = pred_proba
+            #         best_AUC = AUC
+            #         best_y_test = y_test
+        # When it meets MaxAbsScaler
+        elif scaler == 'MaxAbsScaler':
+            # MaxAbs Scaling using scaling function defined above
+            train, test = scaling(scaler, train, test)
+            # print('========================= OneHot Encoder & MaxAbs Scaler =========================')
+            # # store values while rotating all algorithms used in this module
+            # for alg in Alg_list:
+            #     algorithm, estimator, score, parameter, precision, recall, F1, pred_proba, AUC = alg(X_train, y_train, X_test, y_test)
+            #     # F1 score is the standard and set condition to store best scores, estimator, algorithm, etc
+            #     if F1 > best_F1:
+            #         best_encoder = 'OneHot Encoder'
+            #         best_scaler = 'MaxAbs Scaler'
+            #         best_algorithm = algorithm
+            #         best_estimator = estimator
+            #         best_score = score
+            #         best_precision = precision
+            #         best_recall = recall
+            #         best_F1 = F1
+            #         best_pred_proba = pred_proba
+            #         best_AUC = AUC
+            #         best_y_test = y_test
+        # When it meets StandardScaler
+        elif scaler == 'StandardScaler':
+            # Standard Scaling using scaling function defined above
+            train, test = scaling(scaler, train, test)
+            # print('========================= OneHot Encoder & Standard Scaler =========================')
+            # # store values while rotating all algorithms used in this module
+            # for alg in Alg_list:
+            #     algorithm, estimator, score, parameter, precision, recall, F1, pred_proba, AUC = alg(X_train, y_train, X_test, y_test)
+            #     # F1 score is the standard and set condition to store best scores, estimator, algorithm, etc
+            #     if F1 > best_F1:
+            #         best_encoder = 'OneHot Encoder'
+            #         best_scaler = 'Standard Scaler'
+            #         best_algorithm = algorithm
+            #         best_estimator = estimator
+            #         best_score = score
+            #         best_precision = precision
+            #         best_recall = recall
+            #         best_F1 = F1
+            #         best_pred_proba = pred_proba
+            #         best_AUC =AUC
+            #         best_y_test = y_test
+        # When it meets RobustScaler
+        elif scaler == 'RobustScaler':
+            # Robust Scaling using scaling function defined above
+            train, test = scaling(scaler, train, test)
+            # print('========================= OneHot Encoder & Robust Scaler =========================')
+            # # store values while rotating all algorithms used in this module
+            # for alg in Alg_list:
+            #     algorithm, estimator, score, parameter, precision, recall, F1, pred_proba, AUC = alg(X_train, y_train, X_test, y_test)
+            #     # F1 score is the standard and set condition to store best scores, estimator, algorithm, etc
+            #     if F1 > best_F1:
+            #         best_encoder = 'OneHot Encoder'
+            #         best_scaler = 'Robust Scaler'
+            #         best_algorithm = algorithm
+            #         best_estimator = estimator
+            #         best_score = score
+            #         best_precision = precision
+            #         best_recall = recall
+            #         best_F1 = F1
+            #         best_pred_proba = pred_proba
+            #         best_AUC =AUC
+            #         best_y_test = y_test
+
+    return train, test
+
+
+def model(train, test, id, label, n_folds=5):
+    # Extract feature names
+    feature_names = train.columns.values.tolist()
+
+    # Convert to np arrays
+    train = np.array(train)
+    test = np.array(test)
+
+    # Create the kfold object
+    k_fold = KFold(n_splits=n_folds, shuffle=False, random_state=50)
+
+    # Empty array for feature importances
+    feature_importance_values = np.zeros(len(feature_names))
+
+    # Empty array for test predictions
+    test_predictions = np.zeros(test.shape[0])
+
+    # Empty array for out of fold validation predictions
+    out_of_fold = np.zeros(train.shape[0])
+
+    # Lists for recording validation and training scores
+    valid_scores = []
+    train_scores = []
+
+    # Iterate through each fold
+    for train_indices, valid_indices in k_fold.split(train):
+        # Training data for the fold
+        train_features, train_labels = train[train_indices], label[train_indices]
+        # Validation data for the fold
+        valid_features, valid_labels = features[valid_indices], label[valid_indices]
+
+        # Create the model
+        model = lgb.LGBMClassifier(n_estimators=10000, objective='binary',
+                                   class_weight='balanced', learning_rate=0.05,
+                                   reg_alpha=0.1, reg_lambda=0.1,
+                                   subsample=0.8, n_jobs=-1, random_state=50)
+
+        # Train the model
+        model.fit(train_features, train_labels, eval_metric='auc',
+                  eval_set=[(valid_features, valid_labels), (train_features, train_labels)],
+                  eval_names=['valid', 'train'], categorical_feature=cat_indices,
+                  early_stopping_rounds=100, verbose=200)
+
+        # Record the best iteration
+        best_iteration = model.best_iteration_
+
+        # Record the feature importances
+        feature_importance_values += model.feature_importances_ / k_fold.n_splits
+
+        # Make predictions
+        test_predictions += model.predict_proba(test_features, num_iteration=best_iteration)[:, 1] / k_fold.n_splits
