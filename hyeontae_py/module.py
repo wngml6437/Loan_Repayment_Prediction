@@ -4,7 +4,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import warnings
 import lightgbm as lgb
-from sklearn.model_selection import GridSearchCV, KFold, train_test_split
+from sklearn.model_selection import GridSearchCV, StratifiedKFold, train_test_split
 from sklearn.metrics import roc_auc_score
 from sklearn.preprocessing import LabelEncoder, StandardScaler, MinMaxScaler, MaxAbsScaler, RobustScaler
 from sklearn.metrics import confusion_matrix, roc_curve, roc_auc_score, precision_score, recall_score, f1_score
@@ -354,6 +354,7 @@ def feature_engineering(train, test, encoder, scaler):
 
         return train, test
 
+    label = train['TARGET']
     # Remove the ids and target
     train = train.drop(columns=['SK_ID_CURR', 'TARGET'])
     test = test.drop(columns=['SK_ID_CURR'])
@@ -466,8 +467,6 @@ def feature_engineering(train, test, encoder, scaler):
         test = df_full[df_full['training_set'] == False]
         test = test.drop('training_set', axis=1)
 
-        print(train.head())
-
         # When it meets MinMaxScaler
         if scaler == 'MinMaxScaler':
             # MinMax Scaling using scaling function defined above
@@ -553,57 +552,89 @@ def feature_engineering(train, test, encoder, scaler):
             #         best_AUC =AUC
             #         best_y_test = y_test
 
+    train = pd.concat([train, label], axis=1)
     return train, test
 
 
 def model(train, test, id, label, n_folds=5):
-    # Extract feature names
-    feature_names = train.columns.values.tolist()
-
-    # Convert to np arrays
-    train = np.array(train)
-    test = np.array(test)
-
+    params = {"learning_rate": [0.001, 0.01, 0.1],
+              "n_estimators": [200, 500, 100],
+              "max_depth": [1, 2, 35, 8]}
     # Create the kfold object
-    k_fold = KFold(n_splits=n_folds, shuffle=False, random_state=50)
+    k_fold = StratifiedKFold(n_splits=n_folds, shuffle=True, random_state=50)
 
-    # Empty array for feature importances
-    feature_importance_values = np.zeros(len(feature_names))
+    X = train.drop([label], 1)
+    y = train[label]
 
-    # Empty array for test predictions
-    test_predictions = np.zeros(test.shape[0])
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=121)
 
-    # Empty array for out of fold validation predictions
-    out_of_fold = np.zeros(train.shape[0])
+    # Create the model
+    model = lgb.LGBMClassifier(n_estimators=200)
 
-    # Lists for recording validation and training scores
-    valid_scores = []
-    train_scores = []
+    lgb_model = GridSearchCV(model, params, cv=k_fold, n_jobs=-1, verbose=4)
+    lgb_model.fit(X_train, y_train)
 
-    # Iterate through each fold
-    for train_indices, valid_indices in k_fold.split(train):
-        # Training data for the fold
-        train_features, train_labels = train[train_indices], label[train_indices]
-        # Validation data for the fold
-        valid_features, valid_labels = features[valid_indices], label[valid_indices]
+    print('========================= LGB Classifier ==========================')
+    print('\nBest parameter : ', lgb_model.best_params_)
+    print('Best score : ', round(lgb_model.best_score_, 6))
+    lgb_best = lgb_model.best_estimator_
+    lgb_score = round(lgb_model.best_score_, 6)
+    lgb_parameter = lgb_model.best_params_
 
-        # Create the model
-        model = lgb.LGBMClassifier(n_estimators=10000, objective='binary',
-                                   class_weight='balanced', learning_rate=0.05,
-                                   reg_alpha=0.1, reg_lambda=0.1,
-                                   subsample=0.8, n_jobs=-1, random_state=50)
+    # predict y
+    lgb_y_pred = lgb_best.predict(X_test)
+    # predict proba y
+    # 서브미션시 사용할 변수
+    lgb_y_pred_proba = lgb_best.predict_proba(X_test)[:, 1]
 
-        # Train the model
-        model.fit(train_features, train_labels, eval_metric='auc',
-                  eval_set=[(valid_features, valid_labels), (train_features, train_labels)],
-                  eval_names=['valid', 'train'], categorical_feature=cat_indices,
-                  early_stopping_rounds=100, verbose=200)
+    # Make confusion matrix
+    lgb_cf = confusion_matrix(y_test, lgb_y_pred)
+    lgb_total = np.sum(lgb_cf, axis=1)
+    lgb_cf = lgb_cf / lgb_total[:, None]
+    lgb_cf = pd.DataFrame(lgb_cf, index=["TN", "FN"], columns=["FP", "TP"])
 
-        # Record the best iteration
-        best_iteration = model.best_iteration_
+    # visualization
+    plt.figure(figsize=(10, 7))
+    plt.title("Confusion Matrix with LGB")
+    sns.heatmap(lgb_cf, annot=True, annot_kws={"size": 20})
+    plt.show()
 
-        # Record the feature importances
-        feature_importance_values += model.feature_importances_ / k_fold.n_splits
+    # precision, recall, f1 score
+    lgb_p = round(precision_score(y_test, lgb_y_pred), 6)
+    print("precision score :", lgb_p)
+    lgb_r = round(recall_score(y_test, lgb_y_pred), 6)
+    print("recall score :", lgb_r)
+    lgb_f = round(f1_score(y_test, lgb_y_pred), 6)
+    print("F1 score :", lgb_f)
+    lgb_roc_auc = roc_auc_score(y_test, lgb_y_pred_proba)
+    print("AUC :", lgb_roc_auc)
 
-        # Make predictions
-        test_predictions += model.predict_proba(test_features, num_iteration=best_iteration)[:, 1] / k_fold.n_splits
+    def rocvis(y_test, pred_proba, label):
+        # FPR, TPR values are returned according to the threshold
+        fpr, tpr, thresholds = roc_curve(y_test, pred_proba)
+        # Draw roc curve with plot
+        plt.plot(fpr, tpr, label=label)
+        # Draw diagonal straight line
+        plt.plot([0, 1], [0, 1], linestyle='--')
+
+    # Print the result
+    print('=============== Result =====================')
+    print('Best estimator : ', lgb_best)
+    print('Best score : ', lgb_score)
+    print('Best precision score : ', lgb_p)
+    print('Best recall score : ', lgb_r)
+    print('Best F1 score : ', lgb_f)
+    print('Best AUC : ', lgb_roc_auc)
+
+    rocvis(y_test, lgb_y_pred_proba, 'LGB Classifier')
+    # Setting FPR axis of X and scaling into unit of 0.1, labels
+    start, end = plt.xlim()
+    plt.xticks(np.round(np.arange(start, end, 0.1), 2))
+    plt.xlim(0, 1)
+    plt.ylim(0, 1)
+    plt.xlabel('FPR( 1 - Sensitivity )')
+    plt.ylabel('TPR( Recall )')
+    plt.legend(fontsize=18)
+    plt.title("Roc Curve", fontsize=25)
+    plt.show()
+
