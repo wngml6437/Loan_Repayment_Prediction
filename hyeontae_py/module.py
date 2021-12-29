@@ -355,6 +355,8 @@ def feature_engineering(train, test, encoder, scaler):
         return train, test
 
     label = train['TARGET']
+    id_train = train['SK_ID_CURR']
+    id_test = test['SK_ID_CURR']
     # Remove the ids and target
     train = train.drop(columns=['SK_ID_CURR', 'TARGET'])
     test = test.drop(columns=['SK_ID_CURR'])
@@ -553,26 +555,34 @@ def feature_engineering(train, test, encoder, scaler):
             #         best_y_test = y_test
 
     train = pd.concat([train, label], axis=1)
+    train = pd.concat([id_train, train], axis=1)
+    test = pd.concat([id_test, test], axis=1)
     return train, test
 
 
 def model(train, test, id, label, n_folds=5):
-    params = {"learning_rate": [0.001, 0.01, 0.1],
-              "n_estimators": [200, 500, 100],
-              "max_depth": [1, 2, 35, 8]}
+    test_features = np.array(test)
+    params = {"learning_rate": [0.1],
+              "n_estimators": [200, 500],
+              "max_depth": [1, 2, 8]}
     # Create the kfold object
     k_fold = StratifiedKFold(n_splits=n_folds, shuffle=True, random_state=50)
-
+    X = train.drop([id], 1)
     X = train.drop([label], 1)
     y = train[label]
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=121)
+    ros = RandomOverSampler(random_state=0)
+    X_resampled, y_resampled = ros.fit_resample(X, y)
+
+    X_train, X_test, y_train, y_test = train_test_split(X_resampled, y_resampled, test_size=0.2, random_state=121)
+
+    eval_set = [(X_test, y_test)]
 
     # Create the model
-    model = lgb.LGBMClassifier(n_estimators=200)
+    model = lgb.LGBMClassifier(n_estimators=200, num_leaves=32, class_weight='balanced')
 
-    lgb_model = GridSearchCV(model, params, cv=k_fold, n_jobs=-1, verbose=4)
-    lgb_model.fit(X_train, y_train)
+    lgb_model = GridSearchCV(model, params, cv=k_fold, n_jobs=-1, verbose=2)
+    lgb_model.fit(X_train, y_train, early_stopping_rounds=100, eval_metric="auc", eval_set=eval_set)
 
     print('========================= LGB Classifier ==========================')
     print('\nBest parameter : ', lgb_model.best_params_)
@@ -586,6 +596,17 @@ def model(train, test, id, label, n_folds=5):
     # predict proba y
     # 서브미션시 사용할 변수
     lgb_y_pred_proba = lgb_best.predict_proba(X_test)[:, 1]
+    test_prediction = lgb_best.predict_proba(test_features)[:, 1]
+
+    # precision, recall, f1 score
+    lgb_p = round(precision_score(y_test, lgb_y_pred), 6)
+    print("precision score :", lgb_p)
+    lgb_r = round(recall_score(y_test, lgb_y_pred), 6)
+    print("recall score :", lgb_r)
+    lgb_f = round(f1_score(y_test, lgb_y_pred), 6)
+    print("F1 score :", lgb_f)
+    lgb_roc_auc = roc_auc_score(y_test, lgb_y_pred_proba)
+    print("AUC :", lgb_roc_auc)
 
     # Make confusion matrix
     lgb_cf = confusion_matrix(y_test, lgb_y_pred)
@@ -598,16 +619,6 @@ def model(train, test, id, label, n_folds=5):
     plt.title("Confusion Matrix with LGB")
     sns.heatmap(lgb_cf, annot=True, annot_kws={"size": 20})
     plt.show()
-
-    # precision, recall, f1 score
-    lgb_p = round(precision_score(y_test, lgb_y_pred), 6)
-    print("precision score :", lgb_p)
-    lgb_r = round(recall_score(y_test, lgb_y_pred), 6)
-    print("recall score :", lgb_r)
-    lgb_f = round(f1_score(y_test, lgb_y_pred), 6)
-    print("F1 score :", lgb_f)
-    lgb_roc_auc = roc_auc_score(y_test, lgb_y_pred_proba)
-    print("AUC :", lgb_roc_auc)
 
     def rocvis(y_test, pred_proba, label):
         # FPR, TPR values are returned according to the threshold
@@ -638,3 +649,109 @@ def model(train, test, id, label, n_folds=5):
     plt.title("Roc Curve", fontsize=25)
     plt.show()
 
+    # Make the submission dataframe
+    submission = pd.DataFrame({'SK_ID_CURR': test[id], 'TARGET': test_prediction})
+    submission.to_csv('prediction.csv', index=False)
+
+
+def oof_model(train, test, id, label, n_folds=5):
+    # Extract the ids
+    train_ids = train[id]
+    test_ids = test[id]
+
+    # Extract the labels for training
+    labels = train[label]
+
+    # Remove the ids and target
+    train = train.drop(columns=[id, label])
+    test = test.drop(columns=[id])
+
+    # Extract feature names
+    feature_names = list(train.columns)
+
+    # Convert to np arrays
+    features = np.array(train)
+    test_features = np.array(test)
+
+    # Create the kfold object
+    k_fold = KFold(n_splits=n_folds, shuffle=True, random_state=50)
+
+    # Empty array for feature importances
+    feature_importance_values = np.zeros(len(feature_names))
+
+    # Empty array for test predictions
+    test_predict = np.zeros(test_features.shape[0])
+    test_predictions = np.zeros(test_features.shape[0])
+
+    # Empty array for out of fold validation predictions
+    out_of_fold2 = np.zeros(features.shape[0])
+    out_of_fold = np.zeros(features.shape[0])
+
+    # Lists for recording validation and training scores
+    valid_scores = []
+    train_scores = []
+
+    # Iterate through each fold
+    for train_indices, valid_indices in k_fold.split(features):
+        # Training data for the fold
+        train_features, train_labels = features[train_indices], labels[train_indices]
+        # Validation data for the fold
+        valid_features, valid_labels = features[valid_indices], labels[valid_indices]
+
+        # Create the model
+        model = lgb.LGBMClassifier(n_estimators=10000, objective='binary',
+                                   class_weight='balanced', learning_rate=0.05,
+                                   reg_alpha=0.1, reg_lambda=0.1,
+                                   subsample=0.8, n_jobs=-1, random_state=50)
+
+        # Train the model
+        model.fit(train_features, train_labels, eval_metric='auc',
+                  eval_set=[(valid_features, valid_labels), (train_features, train_labels)],
+                  eval_names=['valid', 'train'], categorical_feature='auto',
+                  early_stopping_rounds=100, verbose=200)
+
+        # Record the best iteration
+        best_iteration = model.best_iteration_
+
+        # Record the feature importances
+        feature_importance_values += model.feature_importances_ / k_fold.n_splits
+
+        # Make predictions
+        test_predict += model.predict(test_features, num_iteration=best_iteration) / k_fold.n_splits
+        test_predictions += model.predict_proba(test_features, num_iteration=best_iteration)[:, 1] / k_fold.n_splits
+
+        # Record the out of fold predictions
+        out_of_fold[valid_indices] = model.predict_proba(valid_features, num_iteration=best_iteration)[:, 1]
+        out_of_fold2[valid_indices] = model.predict(valid_features, num_iteration=best_iteration)
+
+        # Record the best score
+        valid_score = model.best_score_['valid']['auc']
+        train_score = model.best_score_['train']['auc']
+
+        valid_scores.append(valid_score)
+        train_scores.append(train_score)
+
+    # Make the submission dataframe
+    submission = pd.DataFrame({'SK_ID_CURR': test_ids, 'TARGET': test_predictions})
+
+    # Make the feature importance dataframe
+    feature_importances = pd.DataFrame({'feature': feature_names, 'importance': feature_importance_values})
+
+    # Overall validation score
+    valid_auc = roc_auc_score(labels, out_of_fold)
+    valid_f1 = f1_score(labels, out_of_fold2)
+
+    # Add the overall scores to the metrics
+    valid_scores.append(valid_auc)
+    train_scores.append(np.mean(train_scores))
+
+    # Needed for creating dataframe of validation scores
+    fold_names = list(range(n_folds))
+    fold_names.append('overall')
+
+    # Dataframe of validation scores
+    metrics = pd.DataFrame({'fold': fold_names,
+                            'train': train_scores,
+                            'valid': valid_scores})
+
+    return submission, feature_importances, metrics
