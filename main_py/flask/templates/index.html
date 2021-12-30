@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+
+    <!-- Basic -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+
+    <!-- Mobile Metas -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+     <!-- Site Metas -->
+    <title>QuickCloud - Hosting Responsive HTML5 Template</title>
+    <meta name="keywords" content="">
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <!-- Site Icons -->
+    <link rel="shortcut icon" href="{{url_for('static', filename = 'images/favicon.ico')}}" type="image/x-icon" />
+    <link rel="apple-touch-icon" href="{{url_for('static', filename = 'images/apple-touch-icon.png')}}" />
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="{{url_for('static', filename = 'css/bootstrap.min.css')}}" />
+    <!-- Site CSS -->
+    <link rel="stylesheet" href="{{url_for('static', filename = 'style.css')}}" />
+    <!-- ALL VERSION CSS -->
+    <link rel="stylesheet" href="{{url_for('static', filename = 'css/versions.css')}}" />
+    <!-- Responsive CSS -->
+    <link rel="stylesheet" href="{{url_for('static', filename = 'css/responsive.css')}}" />
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{url_for('static', filename = 'css/custom.css')}}" />
+
+    <!-- Modernizer for Portfolio -->
+    <!-- <script src="js/modernizer.js"></script> -->
+
+    <script type="text/javascript" src="{{ url_for('static', filename = 'js/modernizer.js')}}"></script>
+
+    <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+
+      <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]-->
+
+    <style>
+      #SearchCreditButton{
+        display: flex;
+        justify-content: center;
+      }
+      .hover-btn-new::after {
+        background: #77a7cd !important;
+        height: 100%;
+        left: 0;
+        top: 0;
+        width: 100%;}
+      .big-tagline a.hover-btn-new::before,
+      .big-tagline a.hover-btn-new::after {
+        background: #ffffff;
+        /* content: ''; */
+        position: absolute;
+        z-index: 1;
+      }
+      .first-section .big-tagline a{
+      	background: none;
+      	position: relative;
+      	display: inline-block;
+      	font-size: 18px;
+      	color: #fff;
+      	padding: 13px 40px;
+      	font-weight: 500;
+      }
+      /*
+      #prediction_result_table{
+        display: flex;
+        justify-content: center;
+      }*/
+    </style>
+
+</head>
+<body class="host_version">
+    <!-- LOADER -->
+	<div id="preloader">
+		<div class="loader-container">
+			<div class="progress-br float shadow">
+				<div class="progress__item"></div>
+			</div>
+		</div>
+	</div>
+	<!-- END LOADER -->
+
+
+	<div id="carouselExampleControls" class="carousel slide bs-slider box-slider" data-ride="carousel" data-pause="hover" data-interval="false" >
+		<!-- Indicators -->
+		<div class="carousel-inner" role="listbox">
+			<div class="carousel-item active">
+				<div id="home" class="first-section" style="background-image:url('static/images/slider-01.jpg');">
+					<div class="dtab">
+						<div class="container">
+							<div class="row">
+								<div class="col-md-12 col-sm-12 text-right">
+									<div class="big-tagline">
+										<h2><strong style="color:#77a7cd">Home Credit</strong> Company</h2>
+										<p class="lead">Our homepage provides services that allow you to inquire loan availabilities from Home Credits. </p>
+                      <div id="SearchCreditButton">
+                        <a href="/search" class="hover-btn-new"><span>Search Credit</span></a>
+                      </div>
+									</div>
+								</div>
+							</div><!-- end row -->
+						</div><!-- end container -->
+					</div>
+				</div><!-- end section -->
+			</div>
+		</div> <!-- -->
+	</div>
+
+    <a href="#" id="scroll-to-top" class="dmtop global-radius"><i class="fa fa-angle-up"></i></a>
+
+    <!-- ALL JS FILES -->
+    <script src="{{url_for('static', filename = 'js/all.js')}}"></script>
+    <!-- ALL PLUGINS -->
+    <script src="{{url_for('static', filename = 'js/custom.js')}}"></script>
+	<script src="{{url_for('static', filename = 'js/timeline.min.js')}}"></script>
+	<script>
+		timeline(document.querySelectorAll('.timeline'), {
+			forceVerticalMode: 700,
+			mode: 'horizontal',
+			verticalStartPosition: 'left',
+			visibleItems: 4
+		});
+	</script>
+</body>
+</html>
