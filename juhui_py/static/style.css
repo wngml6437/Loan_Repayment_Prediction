@@ -22,7 +22,7 @@
 -------------------------------------------------------------------*/
 
 body {
-    /*color: #333333;*/ color: #77A7CD;
+    color: #333333;
     font-size: 15px;
     font-family: 'Quicksand', sans-serif;
     line-height: 1.80857;
@@ -747,14 +747,14 @@ a img.aligncenter {
 
 .big-tagline a.hover-btn-new::before,
 .big-tagline a.hover-btn-new::after {
-  background: #fff;
+  background: #f1dfd3;
   content: '';
   position: absolute;
   z-index: 1;
 }
 
 .big-tagline a.hover-btn-new:hover span {
-  color: #9dc15b;
+  color: #77a7cd;
 }
 
 .hover-btn-new::before {
@@ -765,7 +765,7 @@ a img.aligncenter {
 }
 
 .hover-btn-new::after {
-  background: #9dc15b !important;
+  background: #77a7cd !important;
   height: 100%;
   left: 0;
   top: 0;
@@ -987,14 +987,14 @@ a img.aligncenter {
 
 .customwidget a.hover-btn-new::before,
 .customwidget a.hover-btn-new::after {
-  background: #9dc15b;
+  background: #77a7cd;
   content: '';
   position: absolute;
   z-index: 1;
 }
 
 .customwidget a.hover-btn-new:hover span {
-  color: #333333;
+  color: #77a7cd;
 }
 .customwidget a.hover-btn-new::before {
   height: 100%;
@@ -1003,7 +1003,7 @@ a img.aligncenter {
   width: 100%;
 }
 .customwidget a.hover-btn-new::after {
-  background: #333333 !important;
+  background: #77a7cd !important;
   height: 100%;
   left: 0;
   top: 0;
@@ -1414,14 +1414,14 @@ a img.aligncenter {
 
 .pricing-table-sign-up a.hover-btn-new::before,
 .pricing-table-sign-up a.hover-btn-new::after {
-  background: #77A7CD;
+  background: #f07373;
   content: '';
   position: absolute;
   z-index: 1;
 }
 
 .pricing-table-sign-up a.hover-btn-new:hover span {
-  color: #77A7CD;
+  color: #fff;
 }
 .pricing-table-sign-up a.hover-btn-new::before {
   height: 100%;

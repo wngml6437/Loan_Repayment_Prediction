@@ -51,6 +51,25 @@
         display: flex;
         justify-content: center;
       }*/
+      body {
+          color: #333333;
+          font-size: 15px;
+          font-family: 'Quicksand', sans-serif;
+          line-height: 1.80857;
+      }
+      body.host_version .checkdomain-wrapper .form-group {
+      background: #77a7cd;
+      padding: 10px;
+      border: 1px solid #e9e9ec;
+      width: 100%;
+      }
+
+      body.host_version .grd1:hover,
+      body.host_version .grd1:focus {
+          background-position: 100px;
+          color: #ffffff !important;
+          background: #f07373;
+      }
     </style>
 
 </head>
@@ -70,10 +89,15 @@
             <div class="row text-center">
 				<div class="col-lg-12">
                     <div class="customwidget text-center">
-                        <h1>Find Your Domain</h1>
+                        <h1>Check for Loan Availability</h1>
                         <div class="col-lg-12">
                             <form action="{{ url_for('result') }}" method = "post" class="checkdomain form-inline">
                                 <div class="checkdomain-wrapper">
+                                  <div style="color:red">
+                                    {% if error %}
+                                      <p><i class="fa fa-check"></i><strong> {{ error }}</strong></p>
+                                    {% endif %}
+                                  </div>
                                     <div class="form-group">
                                         <label class="sr-only" for="domainnamehere">Domain name</label>
                                         <input type="text" class="form-control" id="domainnamehere" name = 'customer_id' placeholder="Enter your customer id">
@@ -82,8 +106,9 @@
                                 </div><!-- end checkdomain-wrapper -->
                             </form>
                         </div>
-                        <p>With our awesome domain name search form, you can search any domain names with tons of extensions.</p>
-						<p>Pursuing high quality standards, my greatest efforts are focused on producing semantic, SEO-friendly, valid and clean code. In order to stay effective and relevant in this constantly evolving sphere I always try to be in touch with the latest news and recent approaches in programming.</p>
+                        <p>Please type your ID.</p>
+                        <p>You can check if a loan will be possible.</p>
+						<p>Home Credit uses machine learning to analyze your information to find out your loan availability.</p>
                     </div>
                 </div>
 

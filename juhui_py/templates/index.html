@@ -45,7 +45,28 @@
         display: flex;
         justify-content: center;
       }
-
+      .hover-btn-new::after {
+        background: #77a7cd !important;
+        height: 100%;
+        left: 0;
+        top: 0;
+        width: 100%;}
+      .big-tagline a.hover-btn-new::before,
+      .big-tagline a.hover-btn-new::after {
+        background: #ffffff;
+        /* content: ''; */
+        position: absolute;
+        z-index: 1;
+      }
+      .first-section .big-tagline a{
+      	background: none;
+      	position: relative;
+      	display: inline-block;
+      	font-size: 18px;
+      	color: #fff;
+      	padding: 13px 40px;
+      	font-weight: 500;
+      }
       /*
       #prediction_result_table{
         display: flex;
@@ -76,8 +97,8 @@
 							<div class="row">
 								<div class="col-md-12 col-sm-12 text-right">
 									<div class="big-tagline">
-										<h2><strong>Shared Hosting</strong> Company</h2>
-										<p class="lead">With Landigoo responsive landing page template, you can promote your all hosting, domain and email services. </p>
+										<h2><strong>Home Credit</strong> Company</h2>
+										<p class="lead">Our homepage provides services that allow you to inquire loan availabilities from Home Credits. </p>
                       <div id="SearchCreditButton">
                         <a href="/search" class="hover-btn-new"><span>Search Credit</span></a>
                       </div>

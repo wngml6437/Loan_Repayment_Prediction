@@ -44,7 +44,7 @@ body.host_version .stat-wrap h3 {
 
 
 /**************************************
-GRADIENTS 
+GRADIENTS
 **************************************/
 
 body.host_version .icon_wrap:hover,
@@ -97,7 +97,7 @@ body.host_version .nav-pills > li > a.active:hover{
 
 
 body.host_version .checkdomain-wrapper .form-group {
-    background: #9dc15b;
+    background: #77a7cd;
     padding: 10px;
     border: 1px solid #e9e9ec;
     width: 100%;
@@ -271,4 +271,3 @@ body.host_version .first-section .lead {
 body.host_version .stat-wrap .alignleft {
     margin-right: 30px;
 }
-
