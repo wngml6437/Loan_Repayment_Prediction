@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+
+    <!-- Basic -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+
+    <!-- Mobile Metas -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+     <!-- Site Metas -->
+    <title>QuickCloud - Hosting Responsive HTML5 Template</title>
+    <meta name="keywords" content="">
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <!-- Site Icons -->
+    <link rel="shortcut icon" href="{{url_for('static', filename = 'images/favicon.ico')}}" type="image/x-icon" />
+    <link rel="apple-touch-icon" href="{{url_for('static', filename = 'images/apple-touch-icon.png')}}" />
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="{{url_for('static', filename = 'css/bootstrap.min.css')}}" />
+    <!-- Site CSS -->
+    <link rel="stylesheet" href="{{url_for('static', filename = 'style.css')}}" />
+    <!-- ALL VERSION CSS -->
+    <link rel="stylesheet" href="{{url_for('static', filename = 'css/versions.css')}}" />
+    <!-- Responsive CSS -->
+    <link rel="stylesheet" href="{{url_for('static', filename = 'css/responsive.css')}}" />
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{url_for('static', filename = 'css/custom.css')}}" />
+
+    <!-- Modernizer for Portfolio -->
+    <!-- <script src="js/modernizer.js"></script> -->
+
+    <script type="text/javascript" src="{{ url_for('static', filename = 'js/modernizer.js')}}"></script>
+
+    <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+
+      <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]-->
+
+    <style>
+      #SearchCreditButton{
+        display: flex;
+        justify-content: center;
+      }
+
+      /*
+      #prediction_result_table{
+        display: flex;
+        justify-content: center;
+      }*/
+      body {
+          color: #333333;
+          font-size: 15px;
+          font-family: 'Quicksand', sans-serif;
+          line-height: 1.80857;
+      }
+      body.host_version .checkdomain-wrapper .form-group {
+      background: #77a7cd;
+      padding: 10px;
+      border: 1px solid #e9e9ec;
+      width: 100%;
+      }
+
+      body.host_version .grd1:hover,
+      body.host_version .grd1:focus {
+          background-position: 100px;
+          color: #ffffff !important;
+          background: #f07373;
+      }
+    </style>
+
+</head>
+<body class="host_version">
+    <!-- LOADER -->
+	<div id="preloader">
+		<div class="loader-container">
+			<div class="progress-br float shadow">
+				<div class="progress__item"></div>
+			</div>
+		</div>
+	</div>
+	<!-- END LOADER -->
+
+	<div id="domain" class="section wb">
+        <div class="container">
+            <div class="row text-center">
+				<div class="col-lg-12">
+                    <div class="customwidget text-center">
+                        <h1>Check for Loan Availability</h1>
+                        <div class="col-lg-12">
+                            <form action="{{ url_for('result') }}" method = "post" class="checkdomain form-inline">
+                                <div class="checkdomain-wrapper">
+                                  <div style="color:red">
+                                    {% if error %}
+                                      <p><i class="fa fa-check"></i><strong> {{ error }}</strong></p>
+                                    {% endif %}
+                                  </div>
+                                    <div class="form-group">
+                                        <label class="sr-only" for="domainnamehere">Domain name</label>
+                                        <input type="text" class="form-control" id="domainnamehere" name = 'customer_id' placeholder="Enter your customer id">
+                                        <button type="submit" class="btn btn-primary grd1"><i class="fa fa-search"></i></button>
+                                    </div>
+                                </div><!-- end checkdomain-wrapper -->
+                            </form>
+                        </div>
+                        <p>Please type your ID.</p>
+                        <p>You can check if a loan will be possible.</p>
+						<p>Home Credit uses machine learning to analyze your information to find out your loan availability.</p>
+                    </div>
+                </div>
+
+                <!-- end col -->
+            </div><!-- end row -->
+        </div><!-- end container -->
+    </div><!-- end section -->
+    <br><br><br><br>
+    <div class="copyrights">
+        <div class="container">
+            <div class="footer-distributed">
+                <div class="footer-left">
+                    <p class="footer-company-name">All Rights Reserved. &copy; 2018 <a href="#">QuickCloud</a> Design By : <a href="https://html.design/">html design</a></p>
+                </div>
+
+                <div class="footer-right">
+                    <ul class="footer-links-soi">
+						<li><a href="#"><i class="fa fa-facebook"></i></a></li>
+						<li><a href="#"><i class="fa fa-github"></i></a></li>
+						<li><a href="#"><i class="fa fa-twitter"></i></a></li>
+						<li><a href="#"><i class="fa fa-dribbble"></i></a></li>
+						<li><a href="#"><i class="fa fa-pinterest"></i></a></li>
+					</ul><!-- end links -->
+                </div>
+            </div>
+        </div><!-- end container -->
+    </div><!-- end copyrights -->
+
+    <a href="#" id="scroll-to-top" class="dmtop global-radius"><i class="fa fa-angle-up"></i></a>
+
+    <!-- ALL JS FILES -->
+    <script src="{{url_for('static', filename = 'js/all.js')}}"></script>
+    <!-- ALL PLUGINS -->
+    <script src="{{url_for('static', filename = 'js/custom.js')}}"></script>
+	<script src="{{url_for('static', filename = 'js/timeline.min.js')}}"></script>
+	<script>
+		timeline(document.querySelectorAll('.timeline'), {
+			forceVerticalMode: 700,
+			mode: 'horizontal',
+			verticalStartPosition: 'left',
+			visibleItems: 4
+		});
+	</script>
+</body>
+<script>
+
+</script>
+
+</html>
