@@ -7,7 +7,8 @@ import lightgbm as lgb
 from sklearn.model_selection import GridSearchCV, StratifiedKFold, train_test_split
 from sklearn.metrics import roc_auc_score
 from sklearn.preprocessing import LabelEncoder, StandardScaler, MinMaxScaler, MaxAbsScaler, RobustScaler
-from sklearn.metrics import confusion_matrix, roc_curve, roc_auc_score, precision_score, recall_score, f1_score
+from sklearn.metrics import confusion_matrix, roc_curve, roc_auc_score, accuracy_score, precision_score, recall_score, \
+    f1_score
 from imblearn.over_sampling import RandomOverSampler
 
 import gc
@@ -21,20 +22,21 @@ def kde_target(var_name, df):
     corr = df['TARGET'].corr(df[var_name])
 
     # Calculate medians for repaid vs not repaid
-    avg_repaid = df.ix[df['TARGET'] == 0, var_name].median()
-    avg_not_repaid = df.ix[df['TARGET'] == 1, var_name].median()
+    avg_repaid = df.loc[df['TARGET'] == 0, var_name].median()
+    avg_not_repaid = df.loc[df['TARGET'] == 1, var_name].median()
 
     plt.figure(figsize=(12, 6))
 
     # Plot the distribution for target == 0 and target == 1
-    sns.kdeplot(df.ix[df['TARGET'] == 0, var_name], label='TARGET == 0')
-    sns.kdeplot(df.ix[df['TARGET'] == 1, var_name], label='TARGET == 1')
+    sns.kdeplot(df.loc[df['TARGET'] == 0, var_name], label='TARGET == 0')
+    sns.kdeplot(df.loc[df['TARGET'] == 1, var_name], label='TARGET == 1')
 
     # label the plot
-    plt.xlabel(var_name);
-    plt.ylabel('Density');
+    plt.xlabel(var_name)
+    plt.ylabel('Density')
     plt.title('%s Distribution' % var_name)
-    plt.legend();
+    plt.legend()
+    plt.show()
 
     # print out the correlation
     print('The correlation between %s and the TARGET is %0.4f' % (var_name, corr))
@@ -162,7 +164,7 @@ def count_categorical(df, group_var, df_name):
     return categorical
 
 
-# Function to calculate missing values by column# Funct
+# Function to calculate missing values by column
 def missing_values_table(df):
     # Total missing values
     mis_val = df.isnull().sum()
@@ -191,21 +193,26 @@ def missing_values_table(df):
     return mis_val_table_ren_columns
 
 
+# Function for merging train dataset with sub data groupby id
 def merge_df(df1_train, df1_test, df2, standard, df2_col, df2_name):
+    # Calling agg_numeric function to set sub data's numeric columns and store into dataframe
     agg_new = agg_numeric(df2.drop(columns=[df2_col]), group_var=standard, df_name=df2_name)
-    print(agg_new.head())
+    # print(agg_new.head())
 
-    # Merge with the training data
+    # Merge with the training data and sub data's transformed numeric dataframe
     train = df1_train.merge(agg_new, on=standard, how='left')
-    print(train.head())
-    print(train.info())
+    # print(train.head())
+    # print(train.info())
 
+    # Calling count_categorical function to set sub data's categorical columns and store into dataframe
     counts = count_categorical(df2, group_var=standard, df_name=df2_name)
-    print(counts.head())
+    # print(counts.head())
 
+    # Merge with the training data and sub data's transformed numeric datafram
     train = train.merge(counts, left_on=standard, right_index=True, how='left')
-    print(train.head())
+    # print(train.head())
 
+    # Same process with test data
     test = df1_test.merge(agg_new, on=standard, how='left')
     test = test.merge(counts, left_on=standard, right_index=True, how='left')
 
@@ -215,12 +222,13 @@ def merge_df(df1_train, df1_test, df2, standard, df2_col, df2_name):
     train, test = train.align(test, join='inner', axis=1)
 
     train['TARGET'] = train_labels
-    print('Training Data Shape: ', train.shape)
-    print('Testing Data Shape: ', test.shape)
+    # print('Training Data Shape: ', train.shape)
+    # print('Testing Data Shape: ', test.shape)
 
     return train, test
 
 
+# Function for dropping columns that explored missing value is over threshold : percentage
 def handle_missing_values(train, test, percentage):
     # Handling missing values
     # Train dataset missing values
@@ -246,11 +254,13 @@ def handle_missing_values(train, test, percentage):
     return train, test
 
 
+# Function for saving dataframes into csv
 def save_csv(train, test, train_name, test_name):
     train.to_csv(train_name, index=False)
     test.to_csv(test_name, index=False)
 
 
+# Function for calculating multicollinearity and dropping columns with over the threshold. (Avoiding duplication)
 def corr_selection(train, test, threshold):
     # Calculate all correlations in dataframe
     corrs = train.corr()
@@ -297,13 +307,28 @@ def corr_selection(train, test, threshold):
     train_corrs_removed = train.drop(columns=cols_to_remove)
     test_corrs_removed = test.drop(columns=cols_to_remove)
 
-    print('Training Corrs Removed Shape: ', train_corrs_removed.shape)
-    print('Testing Corrs Removed Shape: ', test_corrs_removed.shape)
-
     return train_corrs_removed, test_corrs_removed
 
 
+# Function for encoding & scaling with variety combinations of encoders and scalers
 def feature_engineering(train, test, encoder, scaler):
+    # Set ids and target and store
+    label = train['TARGET']
+    id_train = train['SK_ID_CURR']
+    id_test = test['SK_ID_CURR']
+    # Remove the ids and target
+    train = train.drop(columns=['SK_ID_CURR', 'TARGET'])
+    test = test.drop(columns=['SK_ID_CURR'])
+
+    train, test = train.align(test, join='inner', axis=1)
+
+    # Setting division for train and test dataset
+    train['training_set'] = True
+    test['training_set'] = False
+
+    # Concat train & test
+    df_full = pd.concat([train, test])
+
     # Function for encoding categorical features with Label Encoder
     # Parameter : df -> Missing value handling, feature selection completed dataset
     def labelEnc(df):
@@ -317,6 +342,7 @@ def feature_engineering(train, test, encoder, scaler):
 
         return df
 
+    # Function for encoding categorical features with One-Hot Encoder
     def OneHotEnc(df):
         df = pd.get_dummies(df)
         return df
@@ -333,6 +359,7 @@ def feature_engineering(train, test, encoder, scaler):
                     annot=True, annot_kws={"size": 8})
         plt.show()
 
+    # Function for scaling dataset
     def scaling(scaler, X_train, X_test):
 
         feature_names = X_train.columns.values.tolist()
@@ -355,24 +382,11 @@ def feature_engineering(train, test, encoder, scaler):
 
         return train, test
 
-    label = train['TARGET']
-    id_train = train['SK_ID_CURR']
-    id_test = test['SK_ID_CURR']
-    # Remove the ids and target
-    train = train.drop(columns=['SK_ID_CURR', 'TARGET'])
-    test = test.drop(columns=['SK_ID_CURR'])
-
-    # Align the dataframes by the columns
-    train, test = train.align(test, join='inner', axis=1)
-
-    train['training_set'] = True
-    test['training_set'] = False
-
-    df_full = pd.concat([train, test])
-
+    # Choosing which encoder and scaler will user use
     if encoder == 'LabelEncoder':
         # Do label encoding with all categorical features
         df_full = labelEnc(df_full)
+        # After encoding split into train & test set with division value
         train = df_full[df_full['training_set'] == True]
         train = train.drop('training_set', axis=1)
         test = df_full[df_full['training_set'] == False]
@@ -382,89 +396,26 @@ def feature_engineering(train, test, encoder, scaler):
         if scaler == 'MinMaxScaler':
             # MinMax Scaling using scaling function defined above
             train, test = scaling(scaler, train, test)
-            # print('========================= Label Encoder & MinMax Scaler =========================')
-            # # store values while rotating all algorithms used in this module
-            # for alg in Alg_list:
-            #     algorithm, estimator, score, parameter, precision, recall, F1, pred_proba, AUC = alg(X_train, y_train, X_test, y_test)
-            #     # F1 score is the standard and set condition to store best scores, estimator, algorithm, etc
-            #     if F1 > best_F1:
-            #         best_encoder = 'Label Encoder'
-            #         best_scaler = 'MinMax Scaler'
-            #         best_algorithm = algorithm
-            #         best_estimator = estimator
-            #         best_score = score
-            #         best_precision = precision
-            #         best_recall = recall
-            #         best_F1 = F1
-            #         best_pred_proba = pred_proba
-            #         best_AUC = AUC
-            #         best_y_test = y_test
+
         # When it meets MaxAbsScaler
         elif scaler == 'MaxAbsScaler':
             # MaxAbs Scaling using scaling function defined above
             train, test = scaling(scaler, train, test)
-            # print('========================= Label Encoder & MaxAbs Scaler =========================')
-            # # store values while rotating all algorithms used in this module
-            # for alg in Alg_list:
-            #     algorithm, estimator, score, parameter, precision, recall, F1, pred_proba, AUC = alg(X_train, y_train, X_test, y_test)
-            #     # F1 score is the standard and set condition to store best scores, estimator, algorithm, etc
-            #     if F1 > best_F1:
-            #         best_encoder = 'Label Encoder'
-            #         best_scaler = 'MaxAbs Scaler'
-            #         best_algorithm = algorithm
-            #         best_estimator = estimator
-            #         best_score = score
-            #         best_precision = precision
-            #         best_recall = recall
-            #         best_F1 = F1
-            #         best_pred_proba = pred_proba
-            #         best_AUC = AUC
-            #         best_y_test = y_test
+
         # When it meets StandardScaler
         elif scaler == 'StandardScaler':
             # Standard Scaling using scaling function defined above
             train, test = scaling(scaler, train, test)
-            # print('========================= Label Encoder & Standard Scaler =========================')
-            # # store values while rotating all algorithms used in this module
-            # for alg in Alg_list:
-            #     algorithm, estimator, score, parameter, precision, recall, F1, pred_proba, AUC = alg(X_train, y_train, X_test, y_test)
-            #     # F1 score is the standard and set condition to store best scores, estimator, algorithm, etc
-            #     if F1 > best_F1:
-            #         best_encoder = 'Label Encoder'
-            #         best_scaler = 'Standard Scaler'
-            #         best_algorithm = algorithm
-            #         best_estimator = estimator
-            #         best_score = score
-            #         best_precision = precision
-            #         best_recall = recall
-            #         best_F1 = F1
-            #         best_pred_proba = pred_proba
-            #         best_AUC =AUC
-            #         best_y_test = y_test
+
         # When it meets RobustScaler
         elif scaler == 'RobustScaler':
             # Robust Scaling using scaling function defined above
             train, test = scaling(scaler, train, test)
-            # print('========================= Label Encoder & Robust Scaler =========================')
-            # # store values while rotating all algorithms used in this module
-            # for alg in Alg_list:
-            #     algorithm, estimator, score, parameter, precision, recall, F1, pred_proba, AUC = alg(X_train, y_train, X_test, y_test)
-            #     # F1 score is the standard and set condition to store best scores, estimator, algorithm, etc
-            #     if F1 > best_F1:
-            #         best_encoder = 'Label Encoder'
-            #         best_scaler = 'Robust Scaler'
-            #         best_algorithm = algorithm
-            #         best_estimator = estimator
-            #         best_score = score
-            #         best_precision = precision
-            #         best_recall = recall
-            #         best_F1 = F1
-            #         best_pred_proba = pred_proba
-            #         best_AUC =AUC
-            #         best_y_test = y_test
+
     elif encoder == 'OneHotEncoder':
-        # Set the feature attributes and target attribute
+        # Do label encoding with all categorical features
         df_full = OneHotEnc(df_full)
+        # After encoding split into train & test set with division value
         train = df_full[df_full['training_set'] == True]
         train = train.drop('training_set', axis=1)
         test = df_full[df_full['training_set'] == False]
@@ -474,107 +425,40 @@ def feature_engineering(train, test, encoder, scaler):
         if scaler == 'MinMaxScaler':
             # MinMax Scaling using scaling function defined above
             train, test = scaling(scaler, train, test)
-            # print('========================= OneHot Encoder & MinMax Scaler =========================')
-            # # store values while rotating all algorithms used in this module
-            # for alg in Alg_list:
-            #     algorithm, estimator, score, parameter, precision, recall, F1, pred_proba, AUC = alg(X_train, y_train, X_test, y_test)
-            #     # F1 score is the standard and set condition to store best scores, estimator, algorithm, etc
-            #     if F1 > best_F1:
-            #         best_encoder = 'OneHot Encoder'
-            #         best_scaler = 'MinMax Scaler'
-            #         best_algorithm = algorithm
-            #         best_estimator = estimator
-            #         best_score = score
-            #         best_precision = precision
-            #         best_recall = recall
-            #         best_F1 = F1
-            #         best_pred_proba = pred_proba
-            #         best_AUC = AUC
-            #         best_y_test = y_test
+
         # When it meets MaxAbsScaler
         elif scaler == 'MaxAbsScaler':
             # MaxAbs Scaling using scaling function defined above
             train, test = scaling(scaler, train, test)
-            # print('========================= OneHot Encoder & MaxAbs Scaler =========================')
-            # # store values while rotating all algorithms used in this module
-            # for alg in Alg_list:
-            #     algorithm, estimator, score, parameter, precision, recall, F1, pred_proba, AUC = alg(X_train, y_train, X_test, y_test)
-            #     # F1 score is the standard and set condition to store best scores, estimator, algorithm, etc
-            #     if F1 > best_F1:
-            #         best_encoder = 'OneHot Encoder'
-            #         best_scaler = 'MaxAbs Scaler'
-            #         best_algorithm = algorithm
-            #         best_estimator = estimator
-            #         best_score = score
-            #         best_precision = precision
-            #         best_recall = recall
-            #         best_F1 = F1
-            #         best_pred_proba = pred_proba
-            #         best_AUC = AUC
-            #         best_y_test = y_test
+
         # When it meets StandardScaler
         elif scaler == 'StandardScaler':
             # Standard Scaling using scaling function defined above
             train, test = scaling(scaler, train, test)
-            # print('========================= OneHot Encoder & Standard Scaler =========================')
-            # # store values while rotating all algorithms used in this module
-            # for alg in Alg_list:
-            #     algorithm, estimator, score, parameter, precision, recall, F1, pred_proba, AUC = alg(X_train, y_train, X_test, y_test)
-            #     # F1 score is the standard and set condition to store best scores, estimator, algorithm, etc
-            #     if F1 > best_F1:
-            #         best_encoder = 'OneHot Encoder'
-            #         best_scaler = 'Standard Scaler'
-            #         best_algorithm = algorithm
-            #         best_estimator = estimator
-            #         best_score = score
-            #         best_precision = precision
-            #         best_recall = recall
-            #         best_F1 = F1
-            #         best_pred_proba = pred_proba
-            #         best_AUC =AUC
-            #         best_y_test = y_test
+
         # When it meets RobustScaler
         elif scaler == 'RobustScaler':
             # Robust Scaling using scaling function defined above
             train, test = scaling(scaler, train, test)
-            # print('========================= OneHot Encoder & Robust Scaler =========================')
-            # # store values while rotating all algorithms used in this module
-            # for alg in Alg_list:
-            #     algorithm, estimator, score, parameter, precision, recall, F1, pred_proba, AUC = alg(X_train, y_train, X_test, y_test)
-            #     # F1 score is the standard and set condition to store best scores, estimator, algorithm, etc
-            #     if F1 > best_F1:
-            #         best_encoder = 'OneHot Encoder'
-            #         best_scaler = 'Robust Scaler'
-            #         best_algorithm = algorithm
-            #         best_estimator = estimator
-            #         best_score = score
-            #         best_precision = precision
-            #         best_recall = recall
-            #         best_F1 = F1
-            #         best_pred_proba = pred_proba
-            #         best_AUC =AUC
-            #         best_y_test = y_test
 
+    # After all feature-engineering concat id, label with train/ concat id with test
     train = pd.concat([train, label], axis=1)
     train = pd.concat([id_train, train], axis=1)
     test = pd.concat([id_test, test], axis=1)
     return train, test
 
 
+# Function for training data with model
 def model(train, test, id, label, n_folds=5):
     features = np.array(train)
     test_features = np.array(test)
 
     # Extract feature names
-    feature_names = list(features.columns)
+    feature_names = list(train.columns)
 
     # Empty array for feature importances
     feature_importance_values = np.zeros(len(feature_names))
 
-    # train, test id 탈락 시켜야함
-    params = {"learning_rate": [0.1],
-              "n_estimators": [200, 500],
-              "max_depth": [1, 2, 8]}
     # Create the kfold object
     k_fold = StratifiedKFold(n_splits=n_folds, shuffle=True, random_state=50)
     X = train.drop([id], 1)
@@ -589,27 +473,24 @@ def model(train, test, id, label, n_folds=5):
     eval_set = [(X_test, y_test)]
 
     # Create the model
-    model = lgb.LGBMClassifier(n_estimators=200, num_leaves=32, class_weight='balanced')
+    model = lgb.LGBMClassifier(num_leaves=36, bagging_fraction=0.5101, max_depth=8, lambda_l1=3.891, lambda_l2=2.61,
+                               min_split_gain=0.05, min_child_weight=40.96, colsample_bytree=0.933)
 
-    lgb_model = GridSearchCV(model, params, cv=k_fold, n_jobs=-1, verbose=2)
-    lgb_model.fit(X_train, y_train, early_stopping_rounds=100, eval_metric="auc", eval_set=eval_set)
+    model.fit(X_train, y_train, early_stopping_rounds=100, eval_metric="auc", eval_set=eval_set)
 
     print('========================= LGB Classifier ==========================')
-    print('\nBest parameter : ', lgb_model.best_params_)
-    print('Best score : ', round(lgb_model.best_score_, 6))
-    lgb_best = lgb_model.best_estimator_
-    lgb_score = round(lgb_model.best_score_, 6)
-    lgb_parameter = lgb_model.best_params_
-    feature_importance_value = lgb_model.feature_importances_
 
     # predict y
-    lgb_y_pred = lgb_best.predict(X_test)
+    lgb_y_pred = model.predict(X_test)
+    feature_importance_values = model.feature_importances_
     # predict proba y
     # 서브미션시 사용할 변수
-    lgb_y_pred_proba = lgb_best.predict_proba(X_test)[:, 1]
-    test_prediction = lgb_best.predict_proba(test_features)[:, 1]
+    lgb_y_pred_proba = model.predict_proba(X_test)[:, 1]
+    test_prediction = model.predict_proba(test_features)[:, 1]
 
-    # precision, recall, f1 score
+    # precision, recall, f1
+    lgb_s = round(accuracy_score(y_test, lgb_y_pred), 6)
+    print("accuracy score :", lgb_s)
     lgb_p = round(precision_score(y_test, lgb_y_pred), 6)
     print("precision score :", lgb_p)
     lgb_r = round(recall_score(y_test, lgb_y_pred), 6)
@@ -623,12 +504,13 @@ def model(train, test, id, label, n_folds=5):
     lgb_cf = confusion_matrix(y_test, lgb_y_pred)
     lgb_total = np.sum(lgb_cf, axis=1)
     lgb_cf = lgb_cf / lgb_total[:, None]
-    lgb_cf = pd.DataFrame(lgb_cf, index=["TN", "FN"], columns=["FP", "TP"])
+    lgb_cf = pd.DataFrame(lgb_cf)
 
     # visualization
     plt.figure(figsize=(10, 7))
     plt.title("Confusion Matrix with LGB")
     sns.heatmap(lgb_cf, annot=True, annot_kws={"size": 20})
+    plt.savefig('lgbm_confusion_matrix-01.png')
     plt.show()
 
     def rocvis(y_test, pred_proba, label):
@@ -641,8 +523,7 @@ def model(train, test, id, label, n_folds=5):
 
     # Print the result
     print('=============== Result =====================')
-    print('Best estimator : ', lgb_best)
-    print('Best score : ', lgb_score)
+    print('Best score : ', lgb_s)
     print('Best precision score : ', lgb_p)
     print('Best recall score : ', lgb_r)
     print('Best F1 score : ', lgb_f)
@@ -658,41 +539,19 @@ def model(train, test, id, label, n_folds=5):
     plt.ylabel('TPR( Recall )')
     plt.legend(fontsize=18)
     plt.title("Roc Curve", fontsize=25)
+    plt.savefig('lgbm_roc-01.png')
     plt.show()
 
     # Make the submission dataframe
     submission = pd.DataFrame({'SK_ID_CURR': test[id], 'TARGET': test_prediction})
     submission.to_csv('prediction.csv', index=False)
 
-    feature_importances = pd.DataFrame({'feature': feature_names,
-                                        'importance': feature_importance_values})
+    # sorted(zip(clf.feature_importances_, X.columns), reverse=True)
+    feature_imp = pd.DataFrame(sorted(zip(model.feature_importances_, X.columns)), columns=['Value', 'Feature'])
 
-    def plot_feature_importances(df):
-        # Sort features according to importance
-        df = df.sort_values('importance', ascending=False).reset_index()
-
-        # Normalize the feature importances to add up to one
-        df['importance_normalized'] = df['importance'] / df['importance'].sum()
-
-        # Make a horizontal bar chart of feature importances
-        plt.figure(figsize=(10, 6))
-        ax = plt.subplot()
-
-        # Need to reverse the index to plot most important on top
-        ax.barh(list(reversed(list(df.index[:15]))),
-                df['importance_normalized'].head(15),
-                align='center', edgecolor='k')
-
-        # Set the yticks and labels
-        ax.set_yticks(list(reversed(list(df.index[:15]))))
-        ax.set_yticklabels(df['feature'].head(15))
-
-        # Plot labeling
-        plt.xlabel('Normalized Importance');
-        plt.title('Feature Importances')
-        plt.show()
-
-        return df
-
-    plot_feature_importances(feature_importances)
-
+    plt.figure(figsize=(20, 10))
+    sns.barplot(x="Value", y="Feature", data=feature_imp.sort_values(by="Value", ascending=False).head(30))
+    plt.title('LightGBM Features (avg over folds)')
+    plt.tight_layout()
+    plt.savefig('lgbm_feature_importances-01.png')
+    plt.show()
